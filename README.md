@@ -67,12 +67,20 @@ Pin map: **[docs/pinmap.md](docs/pinmap.md)**. Header I/O is 3.3 V (pins 27/28 a
 
 Version 0.1, the first release. Both setup paths, changing settings from the card, Wi-Fi, USB-C, HDMI and
 repeated reboots are tested on hardware. The header overlays with real devices attached are next.
+
+**Tested from Windows 11 only.** Everything on the PC side was done on a Windows 11 laptop: editing
+`mangue-setup.txt` in Notepad, SSH and the USB-C network/serial connection, and building the image (in
+WSL2 with Ubuntu 24.04 and Docker). Nobody has tried it from **macOS** or a **native Linux** PC yet, so
+flashing, editing the setup file, USB-C access and building from those are untested. They should work
+(the card's setup partition is plain FAT, USB-C uses standard drivers, Armbian builds on Linux), but if
+you try, please open an issue and say how it went.
 Bug reports and test results with real sensors are very welcome: open an issue.
 
 ## Building it yourself
 
 You need an x86-64 Linux machine (or WSL2, working on its Linux filesystem, not `/mnt/c`) with Docker,
-and 25 GB or more of free disk.
+and 25 GB or more of free disk. Release 0.1 was built in WSL2 (Ubuntu 24.04) on Windows 11; a native
+Linux build is untested.
 
 ```sh
 git clone https://github.com/armbian/build armbian-build
