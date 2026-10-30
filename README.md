@@ -5,8 +5,8 @@
 **A small, headless-friendly Debian for the MangoPi MQ Pro.** Flash it, type your Wi-Fi and a username
 into a text file on your PC, boot the board, and SSH in. No screen, no keyboard, no serial adapter.
 
-*Mangue* is French for mango. It's Debian 13 (trixie), built with the
-[Armbian build framework](https://github.com/armbian/build) for the MQ Pro's Allwinner D1 (RISC-V).
+*Mangue* is French for mango. Don't ask me why I named it that, out of everything else. I couldn't think of anything else.
+It's Debian 13 (trixie), built with the [Armbian build framework](https://github.com/armbian/build) for the MQ Pro's Allwinner D1 (RISC-V).
 
 ## Why not just use stock Armbian?
 
