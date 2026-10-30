@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@mangueos>
+Date: Tue, 13 Oct 2026 12:00:00 +0400
+Subject: [PATCH] drm/sun4i: hdmi-phy: D1: log PHY bring-up steps at debug level
+
+The BSP PHY code from patch 0009 logs "enter <func>" and each status poll at
+info level on every modeset. Move them to pr_debug; the timeout errors stay pr_err.
+(Mangue OS bug B15.)
+---
+diff --git a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
+--- a/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
++++ b/drivers/gpu/drm/sun4i/sun8i_hdmi_phy.c
+@@ -405,7 +405,7 @@
+ {
+ 	int i = 0, status = 0;
+ 
+-	pr_info("enter %s\n", __func__);
++	pr_debug("enter %s\n", __func__);
+ 
+ 	//enib -> enldo -> enrcal -> encalog -> enbi[3:0] -> enck -> enp2s[3:0] -> enres -> enresck -> entx[3:0]
+ 	phy_base->phy_ctl4.bits.reg_slv = 4;     //low power voltage 1.08V, default is 3, set 4 as well as pll_ctl0 bit [24:26]
+@@ -420,7 +420,7 @@
+ 		udelay(5);
+ 		status = phy_base->phy_pll_sts.bits.phy_rcalend2d_status;
+ 		if (status & 0x1) {
+-			pr_info("[%s]:phy_rcalend2d_status\n", __func__);
++			pr_debug("[%s]:phy_rcalend2d_status\n", __func__);
+ 			break;
+ 		}
+ 	}
+@@ -434,7 +434,7 @@
+ 		udelay(5);
+ 		status = phy_base->phy_pll_sts.bits.pll_lock_status;
+ 		if (status & 0x1) {
+-			pr_info("[%s]:pll_lock_status\n", __func__);
++			pr_debug("[%s]:pll_lock_status\n", __func__);
+ 			break;
+ 		}
+ 	}
+@@ -453,7 +453,7 @@
+ 		udelay(5);
+ 		status = phy_base->phy_pll_sts.bits.tx_ready_dly_status;
+ 		if (status & 0x1) {
+-			pr_info("[%s]:tx_ready_status\n", __func__);
++			pr_debug("[%s]:tx_ready_status\n", __func__);
+ 			break;
+ 		}
+ 	}
+@@ -473,7 +473,7 @@
+ 	volatile struct __aw_phy_reg_t __iomem *phy_base = phy->base;
+ 	int ret;
+ 
+-	pr_info("enter %s\n", __func__);
++	pr_debug("enter %s\n", __func__);
+ 
+ 	/* enable all channel */
+ 	phy_base->phy_ctl5.bits.reg_p1opt = 0xF;

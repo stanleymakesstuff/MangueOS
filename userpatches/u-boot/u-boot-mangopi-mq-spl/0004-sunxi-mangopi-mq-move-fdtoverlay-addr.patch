@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@localhost>
+Date: Sat, 10 Oct 2026 16:00:00 +0400
+Subject: [PATCH] sunxi: mangopi-mq: move fdtoverlay_addr_r above the kernel
+
+fdtoverlay_addr_r (0x41B00000) sat inside the uncompressed kernel image
+loaded at 0x40200000 (6.18 Image = 29.8 MB, ends ~0x41EC0000), so loading
+any fdtoverlay would corrupt the kernel. Move it to 0x45000000
+(below FDT_ADDR_R 0x46000000, leaves ~78 MB for the kernel).
+
+---
+ include/configs/sunxi-common.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/configs/sunxi-common.h b/include/configs/sunxi-common.h
+--- a/include/configs/sunxi-common.h
++++ b/include/configs/sunxi-common.h
+@@ -106,7 +106,7 @@
+ #define FDT_ADDR_R        __stringify(0x46000000)
+ #define SCRIPT_ADDR_R     __stringify(0x47000000)
+ #define PXEFILE_ADDR_R    __stringify(0x47000000)
+-#define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(1B00000))
++#define FDTOVERLAY_ADDR_R __stringify(0x45000000)
+ #define RAMDISK_ADDR_R    __stringify(0x48000000)
+ 
+ #elif defined(CONFIG_ARM64)

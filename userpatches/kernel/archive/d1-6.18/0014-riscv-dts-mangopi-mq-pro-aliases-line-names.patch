@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@mangueos>
+Date: Tue, 13 Oct 2026 12:00:00 +0400
+Subject: [PATCH] riscv: dts: allwinner: mangopi-mq-pro: fixed bus numbers, GPIO line names
+
+Aliases pin every I2C/SPI/UART controller to its own number so device nodes never
+depend on probe order; header GPIO lines are named P<physical pin>.
+---
+diff --git a/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts b/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
+--- a/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
++++ b/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
+@@ -209,3 +209,58 @@
+ &hdmi_phy {
+ 	status = "okay";
+ };
++
++/* Mangue OS: bus devices keep D1 controller numbers (/dev/i2c-0 = i2c0 ...), header GPIO lines are named by physical pin. */
++/ {
++	aliases {
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		spi0 = &spi0;
++		spi1 = &spi1;
++		serial1 = &uart1;
++		serial2 = &uart2;
++		serial3 = &uart3;
++		serial4 = &uart4;
++		serial5 = &uart5;
++	};
++};
++
++&pio {
++	gpio-line-names =
++		/* PA */
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		/* PB */
++		"P15", "P16", "P36", "P38", "P40", "P12", "P35", "P7",
++		"P8-CONSOLE", "P10-CONSOLE", "P29", "P31", "P33", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		/* PC */
++		"P32", "P22", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		/* PD */
++		"", "", "", "", "", "", "", "",
++		"", "", "P24", "P23", "P19", "P21", "P18", "P26",
++		"", "P37", "LED-STATUS", "", "", "P11", "P13", "",
++		"", "", "", "", "", "", "", "",
++		/* PE */
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"P28", "P27", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		/* PF */
++		"", "", "", "", "", "", "SD-DETECT", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		"", "", "", "", "", "", "", "",
++		/* PG */
++		"", "", "", "", "", "", "", "",
++		"", "", "WIFI-HOST-WAKE", "", "P5", "P3", "BT-HOST-WAKE", "BT-ENABLE",
++		"", "WIFI-RESET", "BT-DEVICE-WAKE";
++};

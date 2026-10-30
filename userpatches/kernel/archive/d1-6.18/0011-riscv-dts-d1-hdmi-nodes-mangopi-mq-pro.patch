@@ -1,0 +1,125 @@
+From 8d504f14ef7d93509fb6586c4e814dbf2cd046dc Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@mangueos>
+Date: Mon, 12 Oct 2026 15:58:30 +0400
+Subject: [PATCH] riscv: dts: allwinner: d1: add HDMI controller/PHY, enable
+ HDMI on MangoPi MQ Pro
+
+hdmi@5500000 and phy@5510000 from smaeul riscv/d1-wip (interrupt 109 -> SOC_PERIPHERAL_IRQ(93)), wired to mainline's empty tcon_top_hdmi_out port. MQ Pro: mini-HDMI (type c) connector, display engine enabled.
+---
+ .../allwinner/sun20i-d1-mangopi-mq-pro.dts    | 30 +++++++++++
+ arch/riscv/boot/dts/allwinner/sun20i-d1.dtsi  | 50 +++++++++++++++++++
+ 2 files changed, 80 insertions(+)
+
+diff --git a/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts b/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
+index 741b821..1f6eb6a 100644
+--- a/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
++++ b/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts
+@@ -22,6 +22,17 @@
+ 		stdout-path = "serial0:115200n8";
+ 	};
+ 
++	hdmi_connector: connector {
++		compatible = "hdmi-connector";
++		type = "c";
++
++		port {
++			hdmi_connector_in: endpoint {
++				remote-endpoint = <&hdmi_out_connector>;
++			};
++		};
++	};
++
+ 	leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -179,3 +190,22 @@
+ 		};
+ 	};
+ };
++
++/* Mangue OS: HDMI output (mini-HDMI, type C). D1 HDMI PHY/glue ported from smaeul d1-wip. */
++&de {
++	status = "okay";
++};
++
++&hdmi {
++	status = "okay";
++};
++
++&hdmi_out {
++	hdmi_out_connector: endpoint {
++		remote-endpoint = <&hdmi_connector_in>;
++	};
++};
++
++&hdmi_phy {
++	status = "okay";
++};
+diff --git a/arch/riscv/boot/dts/allwinner/sun20i-d1.dtsi b/arch/riscv/boot/dts/allwinner/sun20i-d1.dtsi
+index b18f368..17b1d23 100644
+--- a/arch/riscv/boot/dts/allwinner/sun20i-d1.dtsi
++++ b/arch/riscv/boot/dts/allwinner/sun20i-d1.dtsi
+@@ -6,6 +6,50 @@
+ 
+ / {
+ 	soc {
++		hdmi: hdmi@5500000 {
++			compatible = "allwinner,sun20i-d1-dw-hdmi";
++			reg = <0x5500000 0x10000>;
++			reg-io-width = <1>;
++			interrupts = <SOC_PERIPHERAL_IRQ(93) IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_HDMI>,
++				 <&ccu CLK_HDMI_24M>,
++				 <&ccu CLK_HDMI_CEC>;
++			clock-names = "iahb", "isfr", "cec";
++			resets = <&ccu RST_BUS_HDMI_SUB>;
++			reset-names = "ctrl";
++			phys = <&hdmi_phy>;
++			phy-names = "phy";
++			status = "disabled";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					hdmi_in_tcon_top: endpoint {
++						remote-endpoint = <&tcon_top_hdmi_out_hdmi>;
++					};
++				};
++
++				hdmi_out: port@1 {
++					reg = <1>;
++				};
++			};
++		};
++
++		hdmi_phy: phy@5510000 {
++			compatible = "allwinner,sun20i-d1-hdmi-phy";
++			reg = <0x5510000 0x10000>;
++			clocks = <&ccu CLK_BUS_HDMI>, <&ccu CLK_HDMI_24M>;
++			clock-names = "bus", "mod";
++			resets = <&ccu RST_BUS_HDMI_MAIN>;
++			reset-names = "phy";
++			status = "disabled";
++			#phy-cells = <0>;
++		};
++
+ 		lradc: keys@2009800 {
+ 			compatible = "allwinner,sun20i-d1-lradc",
+ 				     "allwinner,sun50i-r329-lradc";
+@@ -64,3 +108,9 @@
+ 		function = "uart0";
+ 	};
+ };
++
++&tcon_top_hdmi_out {
++	tcon_top_hdmi_out_hdmi: endpoint {
++		remote-endpoint = <&hdmi_in_tcon_top>;
++	};
++};
+-- 
+2.43.0
+

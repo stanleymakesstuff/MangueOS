@@ -1,0 +1,18 @@
+#!/bin/sh
+# Mangue OS B1 safety net: the vendor RTL8723DS driver can wedge after the AP rejects a
+# re-association (ASSOC-REJECT status 1, then "Association request to the driver failed"
+# forever). Only a module reload recovers it (verified 2026-10-13: back online in 11 s).
+# Run every 30 s by mangue-wifi-recover.timer; acts on >= 3 driver refusals within 90 s,
+# at most once per 5 min.
+STAMP=/run/mangue-wifi-recover.last
+fails=$(journalctl -q --no-pager --since=-90s -t wpa_supplicant 2>/dev/null \
+	| grep -c 'Association request to the driver failed')
+[ "${fails:-0}" -ge 3 ] || exit 0
+now=$(date +%s)
+[ -f "$STAMP" ] && [ $((now - $(cat "$STAMP"))) -lt 300 ] && exit 0
+echo "$now" > "$STAMP"
+units=$(systemctl list-units --plain --no-legend --state=active 'netplan-wpa-*.service' | awk '{print $1}')
+logger -t mangue-wifi-recover "8723ds refused $fails associations in 90 s: reloading driver (units: ${units:-none})"
+modprobe -r 8723ds && sleep 2 && modprobe 8723ds
+sleep 3
+for u in $units; do systemctl restart "$u"; done

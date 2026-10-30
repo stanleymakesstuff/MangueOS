@@ -1,0 +1,2 @@
+# Mangue OS: /dev/serial0 = header UART on pins 8/10 (the serial console), as on a Raspberry Pi.
+KERNEL=="ttyS0", SYMLINK+="serial0"

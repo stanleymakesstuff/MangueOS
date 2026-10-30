@@ -1,0 +1,19 @@
+From: Mangue OS <noreply@localhost>
+Subject: [PATCH] riscv: dts: allwinner: build MangoPi MQ Pro DTB with overlay symbols
+
+Header-peripheral overlays (fdtoverlays in extlinux.conf) need __symbols__
+in the base DTB.
+
+---
+ arch/riscv/boot/dts/allwinner/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/riscv/boot/dts/allwinner/Makefile b/arch/riscv/boot/dts/allwinner/Makefile
+--- a/arch/riscv/boot/dts/allwinner/Makefile
++++ b/arch/riscv/boot/dts/allwinner/Makefile
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0
++DTC_FLAGS_sun20i-d1-mangopi-mq-pro := -@
+ dtb-$(CONFIG_ARCH_SUNXI) += sun20i-d1-clockworkpi-v3.14.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun20i-d1-devterm-v3.14.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun20i-d1-dongshan-nezha-stu.dtb

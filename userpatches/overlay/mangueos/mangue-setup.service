@@ -1,0 +1,22 @@
+[Unit]
+Description=Mangue OS first-boot setup from /boot/mangue-setup.txt
+# First boot: before anyone can log in (the console wizard runs at login) and before networking starts
+# (it writes the Wi-Fi config networkd reads). Next boot: lock root. Never blocks logins for long.
+ConditionPathExists=|/root/.not_logged_in_yet
+ConditionPathExists=|/var/lib/mangueos/lock-root
+# Later boots: only when /boot/mangue-setup.txt was edited on a PC (changes from the card).
+ConditionPathExists=|/var/lib/mangueos/setup-done
+After=local-fs.target
+Before=systemd-networkd.service network-pre.target systemd-user-sessions.service ssh.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+# Cheap pre-check: skip the Python start on normal boots (file unchanged since it was last applied).
+ExecCondition=/bin/sh -c '[ -e /root/.not_logged_in_yet ] || [ -e /var/lib/mangueos/lock-root ] || ! sha256sum --status -c /var/lib/mangueos/setup-file.sha256'
+ExecStart=/usr/lib/mangueos/mangue-setup
+RemainAfterExit=yes
+TimeoutStartSec=2min
+
+[Install]
+WantedBy=multi-user.target

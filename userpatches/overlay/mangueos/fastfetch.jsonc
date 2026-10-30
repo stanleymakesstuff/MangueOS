@@ -1,0 +1,6 @@
+// Mangue OS system-wide fastfetch config
+{
+  "logo": { "type": "file-raw", "source": "/usr/share/mangueos/logo_large.ans", "padding": { "right": 2 } },
+  "modules": [ "title", "separator", "os", "host", "kernel", "uptime", "packages", "shell",
+               "cpu", "memory", "swap", "disk", "localip", "temperature" ]
+}

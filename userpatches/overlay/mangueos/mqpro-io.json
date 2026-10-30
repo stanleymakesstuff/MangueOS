@@ -1,0 +1,678 @@
+{
+ "generated_by": "tools/gen_overlays.py",
+ "header": {
+  "3": {
+   "port": "PG13",
+   "voltage": 3.3,
+   "pi_bcm": 2,
+   "board_pullup": true,
+   "reserved": null
+  },
+  "5": {
+   "port": "PG12",
+   "voltage": 3.3,
+   "pi_bcm": 3,
+   "board_pullup": true,
+   "reserved": null
+  },
+  "7": {
+   "port": "PB7",
+   "voltage": 3.3,
+   "pi_bcm": 4,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "8": {
+   "port": "PB8",
+   "voltage": 3.3,
+   "pi_bcm": 14,
+   "board_pullup": false,
+   "reserved": "UART0 TX (serial console)"
+  },
+  "10": {
+   "port": "PB9",
+   "voltage": 3.3,
+   "pi_bcm": 15,
+   "board_pullup": false,
+   "reserved": "UART0 RX (serial console)"
+  },
+  "11": {
+   "port": "PD21",
+   "voltage": 3.3,
+   "pi_bcm": 17,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "12": {
+   "port": "PB5",
+   "voltage": 3.3,
+   "pi_bcm": 18,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "13": {
+   "port": "PD22",
+   "voltage": 3.3,
+   "pi_bcm": 27,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "15": {
+   "port": "PB0",
+   "voltage": 3.3,
+   "pi_bcm": 22,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "16": {
+   "port": "PB1",
+   "voltage": 3.3,
+   "pi_bcm": 23,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "18": {
+   "port": "PD14",
+   "voltage": 3.3,
+   "pi_bcm": 24,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "19": {
+   "port": "PD12",
+   "voltage": 3.3,
+   "pi_bcm": 10,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "21": {
+   "port": "PD13",
+   "voltage": 3.3,
+   "pi_bcm": 9,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "22": {
+   "port": "PC1",
+   "voltage": 3.3,
+   "pi_bcm": 25,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "23": {
+   "port": "PD11",
+   "voltage": 3.3,
+   "pi_bcm": 11,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "24": {
+   "port": "PD10",
+   "voltage": 3.3,
+   "pi_bcm": 8,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "26": {
+   "port": "PD15",
+   "voltage": 3.3,
+   "pi_bcm": 7,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "27": {
+   "port": "PE17",
+   "voltage": 2.8,
+   "pi_bcm": 0,
+   "board_pullup": true,
+   "reserved": null
+  },
+  "28": {
+   "port": "PE16",
+   "voltage": 2.8,
+   "pi_bcm": 1,
+   "board_pullup": true,
+   "reserved": null
+  },
+  "29": {
+   "port": "PB10",
+   "voltage": 3.3,
+   "pi_bcm": 5,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "31": {
+   "port": "PB11",
+   "voltage": 3.3,
+   "pi_bcm": 6,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "32": {
+   "port": "PC0",
+   "voltage": 3.3,
+   "pi_bcm": 12,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "33": {
+   "port": "PB12",
+   "voltage": 3.3,
+   "pi_bcm": 13,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "35": {
+   "port": "PB6",
+   "voltage": 3.3,
+   "pi_bcm": 19,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "36": {
+   "port": "PB2",
+   "voltage": 3.3,
+   "pi_bcm": 16,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "37": {
+   "port": "PD17",
+   "voltage": 3.3,
+   "pi_bcm": 26,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "38": {
+   "port": "PB3",
+   "voltage": 3.3,
+   "pi_bcm": 20,
+   "board_pullup": false,
+   "reserved": null
+  },
+  "40": {
+   "port": "PB4",
+   "voltage": 3.3,
+   "pi_bcm": 21,
+   "board_pullup": false,
+   "reserved": null
+  }
+ },
+ "overlays": {
+  "i2c0-pins3-5": {
+   "kind": "i2c",
+   "pins": {
+    "3": "sda",
+    "5": "scl"
+   },
+   "resource": "i2c0",
+   "device": "/dev/i2c-0",
+   "note": null,
+   "warn": null
+  },
+  "i2c0-pins29-31": {
+   "kind": "i2c",
+   "pins": {
+    "31": "sda",
+    "29": "scl"
+   },
+   "resource": "i2c0",
+   "device": "/dev/i2c-0",
+   "note": null,
+   "warn": null
+  },
+  "i2c0-pins36-38": {
+   "kind": "i2c",
+   "pins": {
+    "36": "sda",
+    "38": "scl"
+   },
+   "resource": "i2c0",
+   "device": "/dev/i2c-0",
+   "note": null,
+   "warn": null
+  },
+  "i2c1-pins12-40": {
+   "kind": "i2c",
+   "pins": {
+    "12": "sda",
+    "40": "scl"
+   },
+   "resource": "i2c1",
+   "device": "/dev/i2c-1",
+   "note": null,
+   "warn": null
+  },
+  "i2c2-pins15-16": {
+   "kind": "i2c",
+   "pins": {
+    "16": "sda",
+    "15": "scl"
+   },
+   "resource": "i2c2",
+   "device": "/dev/i2c-2",
+   "note": null,
+   "warn": null
+  },
+  "i2c2-pins22-32": {
+   "kind": "i2c",
+   "pins": {
+    "22": "sda",
+    "32": "scl"
+   },
+   "resource": "i2c2",
+   "device": "/dev/i2c-2",
+   "note": null,
+   "warn": null
+  },
+  "i2c3-pins27-28": {
+   "kind": "i2c",
+   "pins": {
+    "27": "sda",
+    "28": "scl"
+   },
+   "resource": "i2c3",
+   "device": "/dev/i2c-3",
+   "note": null,
+   "warn": "Pins 27/28 are 2.8 V I/O (board pull-ups to 3.3 V). Open-drain I2C only: no 3.3 V push-pull signals, no extra pull-ups."
+  },
+  "i2c3-pins7-35": {
+   "kind": "i2c",
+   "pins": {
+    "7": "sda",
+    "35": "scl"
+   },
+   "resource": "i2c3",
+   "device": "/dev/i2c-3",
+   "note": null,
+   "warn": null
+  },
+  "i2c-gpio-pins16-18": {
+   "kind": "i2c-gpio",
+   "pins": {
+    "16": "sda",
+    "18": "scl"
+   },
+   "resource": "i2c-gpio",
+   "device": "/dev/i2c-N (first free number >= 4; HDMI DDC also takes one; see i2cdetect -l)",
+   "note": "bit-banged, ~100 kHz; bus number is the first free one >= 4 (see i2cdetect -l)",
+   "warn": null
+  },
+  "spi1-pins19-21-23-24": {
+   "kind": "spidev",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0"
+   },
+   "resource": "spi1",
+   "device": "/dev/spidev1.0",
+   "note": null,
+   "warn": null
+  },
+  "spi1-pins19-21-23-24-26": {
+   "kind": "spidev",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0",
+    "26": "cs1-gpio"
+   },
+   "resource": "spi1",
+   "device": "/dev/spidev1.0 + /dev/spidev1.1",
+   "note": null,
+   "warn": null
+  },
+  "uart2-pins15-16": {
+   "kind": "uart",
+   "pins": {
+    "15": "tx",
+    "16": "rx"
+   },
+   "resource": "uart2",
+   "device": "/dev/ttyS2",
+   "note": null,
+   "warn": null
+  },
+  "uart2-pins22-32": {
+   "kind": "uart",
+   "pins": {
+    "32": "tx",
+    "22": "rx"
+   },
+   "resource": "uart2",
+   "device": "/dev/ttyS2",
+   "note": null,
+   "warn": null
+  },
+  "uart3-pins7-35": {
+   "kind": "uart",
+   "pins": {
+    "35": "tx",
+    "7": "rx"
+   },
+   "resource": "uart3",
+   "device": "/dev/ttyS3",
+   "note": null,
+   "warn": null
+  },
+  "uart3-pins18-21-23-24": {
+   "kind": "uart",
+   "pins": {
+    "24": "tx",
+    "23": "rx",
+    "21": "rts",
+    "18": "cts"
+   },
+   "resource": "uart3",
+   "device": "/dev/ttyS3",
+   "note": "with RTS/CTS flow control",
+   "warn": null
+  },
+  "uart4-pins36-38": {
+   "kind": "uart",
+   "pins": {
+    "36": "tx",
+    "38": "rx"
+   },
+   "resource": "uart4",
+   "device": "/dev/ttyS4",
+   "note": null,
+   "warn": null
+  },
+  "uart5-pins12-40": {
+   "kind": "uart",
+   "pins": {
+    "40": "tx",
+    "12": "rx"
+   },
+   "resource": "uart5",
+   "device": "/dev/ttyS5",
+   "note": null,
+   "warn": null
+  },
+  "pwm0-pin5": {
+   "kind": "pwm",
+   "pins": {
+    "5": "pwm0"
+   },
+   "resource": "pwm0",
+   "device": "/sys/class/pwm/pwmchip0 channel 0",
+   "note": null,
+   "warn": null
+  },
+  "pwm0-pin12": {
+   "kind": "pwm",
+   "pins": {
+    "12": "pwm0"
+   },
+   "resource": "pwm0",
+   "device": "/sys/class/pwm/pwmchip0 channel 0",
+   "note": null,
+   "warn": null
+  },
+  "pwm0-pin33": {
+   "kind": "pwm",
+   "pins": {
+    "33": "pwm0"
+   },
+   "resource": "pwm0",
+   "device": "/sys/class/pwm/pwmchip0 channel 0",
+   "note": null,
+   "warn": null
+  },
+  "pwm1-pin35": {
+   "kind": "pwm",
+   "pins": {
+    "35": "pwm1"
+   },
+   "resource": "pwm1",
+   "device": "/sys/class/pwm/pwmchip0 channel 1",
+   "note": null,
+   "warn": null
+  },
+  "pwm1-pin37": {
+   "kind": "pwm",
+   "pins": {
+    "37": "pwm1"
+   },
+   "resource": "pwm1",
+   "device": "/sys/class/pwm/pwmchip0 channel 1",
+   "note": null,
+   "warn": null
+  },
+  "pwm2-pin3": {
+   "kind": "pwm",
+   "pins": {
+    "3": "pwm2"
+   },
+   "resource": "pwm2",
+   "device": "/sys/class/pwm/pwmchip0 channel 2",
+   "note": null,
+   "warn": null
+  },
+  "pwm2-pin31": {
+   "kind": "pwm",
+   "pins": {
+    "31": "pwm2"
+   },
+   "resource": "pwm2",
+   "device": "/sys/class/pwm/pwmchip0 channel 2",
+   "note": null,
+   "warn": null
+  },
+  "pwm3-pin15": {
+   "kind": "pwm",
+   "pins": {
+    "15": "pwm3"
+   },
+   "resource": "pwm3",
+   "device": "/sys/class/pwm/pwmchip0 channel 3",
+   "note": null,
+   "warn": null
+  },
+  "pwm4-pin16": {
+   "kind": "pwm",
+   "pins": {
+    "16": "pwm4"
+   },
+   "resource": "pwm4",
+   "device": "/sys/class/pwm/pwmchip0 channel 4",
+   "note": null,
+   "warn": null
+  },
+  "pwm5-pin11": {
+   "kind": "pwm",
+   "pins": {
+    "11": "pwm5"
+   },
+   "resource": "pwm5",
+   "device": "/sys/class/pwm/pwmchip0 channel 5",
+   "note": null,
+   "warn": null
+  },
+  "pwm7-pin13": {
+   "kind": "pwm",
+   "pins": {
+    "13": "pwm7"
+   },
+   "resource": "pwm7",
+   "device": "/sys/class/pwm/pwmchip0 channel 7",
+   "note": null,
+   "warn": null
+  },
+  "pwm7-pin28": {
+   "kind": "pwm",
+   "pins": {
+    "28": "pwm7"
+   },
+   "resource": "pwm7",
+   "device": "/sys/class/pwm/pwmchip0 channel 7",
+   "note": null,
+   "warn": null
+  },
+  "pwm7-pin29": {
+   "kind": "pwm",
+   "pins": {
+    "29": "pwm7"
+   },
+   "resource": "pwm7",
+   "device": "/sys/class/pwm/pwmchip0 channel 7",
+   "note": null,
+   "warn": null
+  },
+  "can0-pins36-38": {
+   "kind": "can",
+   "pins": {
+    "36": "tx",
+    "38": "rx"
+   },
+   "resource": "can0",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": "Needs an external 3.3 V CAN transceiver (e.g. SN65HVD230). Classic CAN, no FD."
+  },
+  "can1-pins12-40": {
+   "kind": "can",
+   "pins": {
+    "40": "tx",
+    "12": "rx"
+   },
+   "resource": "can1",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": "Needs an external 3.3 V CAN transceiver (e.g. SN65HVD230). Classic CAN, no FD."
+  },
+  "mcp2515-8mhz": {
+   "kind": "mcp2515",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0",
+    "22": "int"
+   },
+   "resource": "spi1",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": null
+  },
+  "mcp2515-12mhz": {
+   "kind": "mcp2515",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0",
+    "22": "int"
+   },
+   "resource": "spi1",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": null
+  },
+  "mcp2515-16mhz": {
+   "kind": "mcp2515",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0",
+    "22": "int"
+   },
+   "resource": "spi1",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": null
+  },
+  "mcp251xfd-40mhz": {
+   "kind": "mcp251xfd",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0",
+    "22": "int"
+   },
+   "resource": "spi1",
+   "device": "network interface canN (ip link set canN up type can bitrate ...)",
+   "note": null,
+   "warn": null
+  },
+  "mcp3008-pins19-21-23-24": {
+   "kind": "mcp3008",
+   "pins": {
+    "19": "mosi",
+    "21": "miso",
+    "23": "clk",
+    "24": "cs0"
+   },
+   "resource": "spi1",
+   "device": "/sys/bus/iio/devices/iio:deviceN",
+   "note": "IIO driver (/sys/bus/iio); use spi1-pins19-21-23-24 instead for spidev access",
+   "warn": null
+  },
+  "w1-gpio-pin7": {
+   "kind": "w1",
+   "pins": {
+    "7": "data"
+   },
+   "resource": "w1-gpio",
+   "device": "/sys/bus/w1/devices",
+   "note": "1-Wire (DS18B20 ...); external 4.7 k pull-up to 3.3 V required",
+   "warn": null
+  },
+  "dht11-pin7": {
+   "kind": "dht11",
+   "pins": {
+    "7": "data"
+   },
+   "resource": "dht11",
+   "device": "/sys/bus/iio/devices/iio:deviceN",
+   "note": null,
+   "warn": null
+  },
+  "gpio-ir-pin12": {
+   "kind": "gpio-ir",
+   "pins": {
+    "12": "rx"
+   },
+   "resource": "gpio-ir",
+   "device": "/dev/lirc0 + input device",
+   "note": null,
+   "warn": null
+  },
+  "pwm-ir-tx-pin12": {
+   "kind": "pwm-ir-tx",
+   "pins": {
+    "12": "pwm0"
+   },
+   "resource": "pwm0",
+   "device": "/dev/lircN (transmit)",
+   "note": null,
+   "warn": null
+  },
+  "pps-gpio-pin12": {
+   "kind": "pps",
+   "pins": {
+    "12": "pps"
+   },
+   "resource": "pps-gpio",
+   "device": "/dev/ppsN",
+   "note": null,
+   "warn": null
+  },
+  "gpio-shutdown-pin5": {
+   "kind": "shutdown",
+   "pins": {
+    "5": "button"
+   },
+   "resource": "gpio-shutdown",
+   "device": "KEY_POWER -> systemd-logind poweroff",
+   "note": "button to GND on pin 5 = clean shutdown (pin has a board pull-up)",
+   "warn": null
+  }
+ }
+}

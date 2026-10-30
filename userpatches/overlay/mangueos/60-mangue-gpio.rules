@@ -1,0 +1,9 @@
+# Mangue OS: header I/O without root, as on Raspberry Pi OS (groups gpio, i2c, spi).
+# /dev/i2c-* is already group i2c via i2c-tools' 60-i2c-tools.rules.
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+SUBSYSTEM=="spidev", KERNEL=="spidev*", GROUP="spi", MODE="0660"
+# PWM sysfs: the chip's export/unexport files ...
+SUBSYSTEM=="pwm", ACTION=="add", RUN+="/bin/sh -c 'chgrp -R gpio /sys%p && chmod -R g=u /sys%p'"
+# ... and exported channels: they have no subsystem; the kernel announces them as a change event on
+# the chip with EXPORT=pwmN. Applied a few ms after export (same as Raspberry Pi OS).
+SUBSYSTEM=="pwm", ACTION=="change", ENV{EXPORT}=="pwm[0-9]*", RUN+="/bin/sh -c 'chgrp -R gpio /sys%p/$env{EXPORT} && chmod -R g=u /sys%p/$env{EXPORT}'"

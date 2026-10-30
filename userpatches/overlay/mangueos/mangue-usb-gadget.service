@@ -1,0 +1,17 @@
+[Unit]
+Description=Mangue OS: SSH over USB-C (NCM Ethernet + serial console gadget)
+# Not on the login path: networkd configures usb0 whenever it appears.
+# The ttyGS0 login comes with the gadget (not enabled on its own): with usb_gadget=no nothing waits
+# 90 s for a /dev/ttyGS0 that never appears (B28). The getty is bound to the device, so it stops with it.
+Wants=serial-getty@ttyGS0.service
+After=systemd-modules-load.service local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/mangueos/mangue-usb-gadget
+ExecStop=/usr/lib/mangueos/mangue-usb-gadget stop
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

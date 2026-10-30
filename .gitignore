@@ -1,0 +1,9 @@
+# Built images stay on disk for reference but are too large for git; checksums are tracked.
+images/*.img
+images/*.img.xz
+images/*.img.zst
+images/debs/
+__pycache__/
+
+# Vendor PDFs (third-party copyright) — local reference only
+docs/reference/*.pdf

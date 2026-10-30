@@ -1,0 +1,417 @@
+#!/usr/bin/python3
+"""Mangue OS first-boot setup from /boot/mangue-setup.txt (the FAT boot partition).
+
+Runs once, before any login is possible (mangue-setup.service). With a username and password in the
+file, Armbian's first-login wizard is driven unattended through its PRESET_* variables
+(/root/.not_logged_in_yet); without them the console wizard asks as usual. Wi-Fi, hostname and SSH are
+applied here directly (the wizard's own Wi-Fi preset cannot do hidden networks and does not escape the
+password). Passwords are erased from the file afterwards; the outcome is written to
+/boot/mangue-setup-result.txt so it can be read on the PC that wrote the file.
+
+Second run (next boot, --post or marker present): lock the random root password set for the wizard.
+Later boots: when the file changed since it was last applied (SHA256 in APPLIED, checked by the unit's
+ExecCondition so an unchanged file costs no Python start), apply the changes: password / new user,
+Wi-Fi, hostname, SSH, USB gadget, timezone, locale. Secrets are erased again each time.
+"""
+import json, os, re, secrets, shlex, subprocess, sys, time
+
+SETUP = "/boot/mangue-setup.txt"
+RESULT = "/boot/mangue-setup-result.txt"
+PRESET = "/root/.not_logged_in_yet"
+LOCK_MARK = "/var/lib/mangueos/lock-root"
+DONE_MARK = "/var/lib/mangueos/setup-done"   # first setup done; later edits go through reapply()
+APPLIED = "/var/lib/mangueos/setup-file.sha256"   # hash of the file as last applied (after scrubbing)
+NETPLAN_WIFI = "/etc/netplan/30-wifis-dhcp.yaml"
+SECRET_KEYS = ("password", "password_hash", "wifi_password")
+RESERVED_USERS = {"root", "daemon", "bin", "sys", "sync", "games", "man", "lp", "mail", "news", "uucp",
+                  "proxy", "www-data", "backup", "list", "irc", "nobody", "systemd-network", "sshd",
+                  "messagebus"}
+
+log = []
+
+
+def note(msg):
+    log.append(msg)
+    print(f"mangue-setup: {msg}", flush=True)
+
+
+def read_setup():
+    raw = open(SETUP, "rb").read().decode("utf-8-sig", errors="replace")      # Notepad may add a BOM
+    conf = {}
+    for n, line in enumerate(raw.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            note(f"line {n} ignored (no '='): {line[:40]}")
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip().lower()
+        # No inline comments: a '#' may be part of a password. Strip them only from non-secret keys.
+        v = v.strip() if k in SECRET_KEYS else v.split("#", 1)[0].strip()
+        if conf.get(k) and v and conf[k] != v:
+            note(f"{k} is set more than once (line {n}): using '{v if k not in SECRET_KEYS else '***'}'")
+        if v or k not in conf:
+            conf[k] = v
+    return raw, conf
+
+
+ERASED_NOTE = ("# {k}: ERASED after it was used (it still works). To change it, type a new one\r\n"
+               "# here: the board applies it at the next start and erases it again.")
+
+
+def scrub(raw):
+    """Rewrite the setup file without secrets (keep everything else for reference). The erased line
+    says so explicitly: an empty password= alone reads as "never set" and invites retyping (B25)."""
+    out, lines = [], raw.splitlines()
+    for i, line in enumerate(lines):
+        k = line.split("=", 1)[0].strip().lower() if "=" in line and not line.lstrip().startswith("#") else ""
+        if k in SECRET_KEYS and line.split("=", 1)[1].strip():
+            out.append(f"{line.split('=', 1)[0]}=")
+            note_text = ERASED_NOTE.format(k=k)
+            if not (i + 1 < len(lines) and lines[i + 1].startswith(f"# {k}: ERASED")):
+                out.append(note_text)
+        else:
+            out.append(line)
+    write_boot(SETUP, "\r\n".join(out) + "\r\n")
+
+
+def remember_applied():
+    """Store the hash of the file as it is now (scrubbed): the next boot applies only real edits."""
+    import hashlib
+    h = hashlib.sha256(open(SETUP, "rb").read()).hexdigest()
+    os.makedirs(os.path.dirname(APPLIED), exist_ok=True)
+    open(APPLIED, "w").write(f"{h}  {SETUP}\n")
+
+
+def file_changed():
+    import hashlib
+    want = open(APPLIED).read().split()[0] if os.path.exists(APPLIED) else ""
+    return hashlib.sha256(open(SETUP, "rb").read()).hexdigest() != want
+
+
+def append_result(title):
+    prev = open(RESULT, encoding="utf-8", errors="replace").read() if os.path.exists(RESULT) else ""
+    write_boot(RESULT, prev.rstrip("\r\n") + f"\r\n\r\n{title}\r\n" + "\r\n".join(log) + "\r\n")
+
+
+def write_boot(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="") as f:
+        f.write(text)
+        f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def yes(v, default):
+    if v is None or v == "":
+        return default
+    return v.strip().lower() in ("yes", "y", "1", "true", "on")
+
+
+def run(*cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode:
+        note(f"{' '.join(cmd[:3])}...: {r.stderr.strip() or r.returncode}")
+    return r.returncode == 0
+
+
+def apply_wifi(c):
+    ssid = c.get("wifi_ssid", "")
+    if not ssid:
+        return
+    ap = {"hidden": True} if yes(c.get("wifi_hidden"), False) else {}
+    if c.get("wifi_password"):
+        ap["password"] = c["wifi_password"]
+    # JSON strings are valid YAML double-quoted scalars: safe for any SSID/password characters.
+    y = ["# Written by mangue-setup from /boot/mangue-setup.txt", "network:", "  version: 2",
+         "  renderer: networkd", "  wifis:", "    wlan0:", "      dhcp4: true", "      dhcp6: true"]
+    cc = c.get("wifi_country", "").upper()
+    if cc and not re.fullmatch(r"[A-Z]{2}", cc):
+        note(f"wifi_country '{cc}' is not a two-letter code: ignored")
+        cc = ""
+    if cc:
+        y.append(f"      regulatory-domain: {json.dumps(cc)}")
+    y.append("      access-points:")
+    y.append(f"        {json.dumps(ssid)}:")
+    y += [f"          {k}: {json.dumps(v)}" for k, v in ap.items()] or ["          {}"]
+    old = os.umask(0o077)
+    try:
+        with open(NETPLAN_WIFI + ".tmp", "w") as f:
+            f.write("\n".join(y) + "\n")
+        os.replace(NETPLAN_WIFI + ".tmp", NETPLAN_WIFI)
+    finally:
+        os.umask(old)
+    note(f"Wi-Fi: {ssid}{' (hidden)' if ap.get('hidden') else ''}")
+    # This runs BEFORE systemd-networkd (mangue-setup.service): generate its config now so networkd
+    # finds it when it starts. Never `netplan apply` during boot: it restarts networkd and waits for it,
+    # which can deadlock against the boot transaction. The supplicant unit netplan generates is new to
+    # systemd, so reload and queue it without waiting (--no-block).
+    run("netplan", "generate")
+    run("systemctl", "daemon-reload")
+    run("systemctl", "start", "--no-block", "netplan-wpa-wlan0.service")
+
+
+def apply_hostname(c):
+    h = c.get("hostname", "")
+    if not h:
+        return
+    if not re.fullmatch(r"[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", h):
+        note(f"hostname '{h}' invalid (letters, digits, '-'): kept the default")
+        return
+    old = open("/etc/hostname").read().strip()
+    if h == old:
+        return
+    open("/etc/hostname", "w").write(h + "\n")
+    hosts = open("/etc/hosts").read()
+    hosts = re.sub(rf"(?m)^(127\.0\.1\.1\s+).*$", rf"\g<1>{h}", hosts) if "127.0.1.1" in hosts \
+        else hosts + f"127.0.1.1\t{h}\n"
+    open("/etc/hosts", "w").write(hosts)
+    run("hostname", h)
+    note(f"hostname: {old} -> {h}")
+
+
+def unit_enabled(unit):
+    return subprocess.run(["systemctl", "is-enabled", "-q", unit]).returncode == 0
+
+
+def apply_ssh(c, changes_only=False):
+    on = yes(c.get("ssh"), True)
+    if changes_only and on == unit_enabled("ssh.service"):
+        return
+    # --no-block: this runs early in boot; queue the start/stop instead of waiting for it.
+    run("systemctl", "enable" if on else "disable", "ssh.service")
+    if changes_only:
+        run("systemctl", "start" if on else "stop", "--no-block", "ssh.service")
+    note("SSH: on (password login, root login disabled)" if on else "SSH: off")
+
+
+def apply_gadget(c, changes_only=False):
+    on = yes(c.get("usb_gadget"), True)
+    if on == unit_enabled("mangue-usb-gadget.service"):
+        return
+    run("systemctl", "enable" if on else "disable", "mangue-usb-gadget.service")
+    if changes_only:
+        # Like SSH: takes effect on this boot too (a stop replaces the queued boot-time start).
+        run("systemctl", "start" if on else "stop", "--no-block", "mangue-usb-gadget.service")
+    note("USB gadget (SSH over USB-C): " + ("on" if on else "off"))
+
+
+def current_ssid():
+    try:
+        m = re.search(r"access-points:\s*\n\s*(\S.*?):\s*\n", open(NETPLAN_WIFI).read())
+        return json.loads(m.group(1)) if m else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def apply_timezone(c):
+    tz = c.get("timezone", "")
+    if not tz:
+        return
+    if not os.path.exists(f"/usr/share/zoneinfo/{tz}"):
+        note(f"timezone '{tz}' unknown: not changed")
+        return
+    if os.path.realpath("/etc/localtime") == os.path.realpath(f"/usr/share/zoneinfo/{tz}"):
+        return
+    if os.path.lexists("/etc/localtime"):
+        os.remove("/etc/localtime")
+    os.symlink(f"/usr/share/zoneinfo/{tz}", "/etc/localtime")
+    open("/etc/timezone", "w").write(tz + "\n")
+    note(f"timezone: {tz}")
+
+
+def apply_locale(c):
+    loc = c.get("locale", "")
+    if not loc:
+        return
+    try:
+        cur = re.search(r"(?m)^LANG=(\S+)", open("/etc/default/locale").read())
+        if cur and cur.group(1).strip("\"'") == loc:
+            if os.path.exists("/var/lib/mangueos/locale-pending"):
+                os.remove("/var/lib/mangueos/locale-pending")   # an older queued change is void now
+            return
+        supported = {l.split()[0] for l in open("/usr/share/i18n/SUPPORTED") if l.strip()}
+    except OSError:
+        supported = set()
+    if loc not in supported:
+        note(f"locale '{loc}' unknown (example: en_GB.UTF-8): not changed")
+        return
+    # locale-gen takes minutes on this CPU: queue it for mangue-locale.service (after this unit, retried
+    # every boot until it succeeded: a reboot during locale-gen once left the locale half-made, B27).
+    os.makedirs("/var/lib/mangueos", exist_ok=True)
+    with open("/var/lib/mangueos/locale-pending", "w") as f:
+        f.write(loc + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    run("systemctl", "start", "--no-block", "mangue-locale.service")
+    note(f"locale: {loc} (being generated, a few minutes; active at the next login after that. "
+         f"If the board is switched off first, it finishes on the next boot)")
+
+
+def first_user():
+    for line in open("/etc/passwd"):
+        f = line.split(":")
+        if f[2] == "1000":
+            return f[0]
+    return ""
+
+
+def apply_account(c):
+    """Password change for an existing user, or a new user (same groups as the first user)."""
+    user, pw, pwh = c.get("username", ""), c.get("password", ""), c.get("password_hash", "")
+    if pwh and not re.fullmatch(r"\$(y|gy|7|6|5|2[aby])\$[./0-9A-Za-z$]{8,}", pwh):
+        note("password_hash ignored: it is not a password hash (to set a password, use the password= line)")
+        pwh = ""
+    if not (pw or pwh):
+        return
+    if not user:
+        note("a password was given but no username: nothing changed")
+        return
+    if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user) or user in RESERVED_USERS:
+        note(f"username '{user}' not allowed (lowercase letters, digits, '-', '_'; not a system name)")
+        return
+    exists = subprocess.run(["id", "-u", user], capture_output=True).returncode == 0
+    if not exists:
+        ref = first_user()
+        groups = subprocess.run(["id", "-nG", ref], capture_output=True, text=True).stdout.split() if ref else ["sudo"]
+        groups = [g for g in groups if g not in (ref, user)]
+        if not run("useradd", "-m", "-s", "/usr/bin/bash", "-c", user, "-G", ",".join(groups), user):
+            return
+    r = subprocess.run(["chpasswd"] + (["-e"] if pwh and not pw else []),
+                       input=f"{user}:{pw or pwh}\n", capture_output=True, text=True)
+    if r.returncode:
+        note(f"password for '{user}' NOT changed: {r.stderr.strip()}")
+    elif exists:
+        note(f"password changed for '{user}'")
+    else:
+        note(f"new user '{user}' created (same groups as '{first_user()}', incl. sudo); the old user is kept")
+
+
+def reapply():
+    """A later boot with an edited file: apply what changed, erase secrets again, report."""
+    raw, c = read_setup()
+    note(f"mangue-setup.txt was changed on the PC; applying the changes ({time.strftime('%Y-%m-%d %H:%M:%S')}, board clock)")
+    steps = [apply_hostname, apply_account, apply_timezone, apply_locale,
+             lambda c: apply_ssh(c, changes_only=True), lambda c: apply_gadget(c, changes_only=True)]
+    if c.get("wifi_ssid") and (c.get("wifi_password") or c["wifi_ssid"] != current_ssid()):
+        # B30: after the erase, an empty wifi_password= is the normal look. A new SSID with it would
+        # replace the working network with an open one and drop the board off Wi-Fi.
+        if not c.get("wifi_password") and not yes(c.get("wifi_open"), False):
+            note(f"Wi-Fi '{c['wifi_ssid']}' NOT applied: wifi_password= is empty. Type the network's "
+                 "password (or wifi_open=yes for a network without one); the old Wi-Fi is kept")
+        else:
+            steps.insert(1, apply_wifi)
+    for step in steps:
+        try:
+            step(c)
+        except Exception as e:
+            note(f"{getattr(step, '__name__', 'step')}: {e}")
+    if len(log) == 1:
+        note("nothing to change (the settings already match)")
+    scrub(raw)
+    remember_applied()
+    append_result("--- changes from the card ---")
+
+
+def preset_user(c):
+    user, pw, pwh = c.get("username", ""), c.get("password", ""), c.get("password_hash", "")
+    # A password typed on the password_hash= line would be installed as a "hash" and lock the user
+    # out. Accept only real crypt(3) hashes ($y$ yescrypt, $6$ sha512, $5$, $2b$ ...).
+    if pwh and not re.fullmatch(r"\$(y|gy|7|6|5|2[aby])\$[./0-9A-Za-z$]{8,}", pwh):
+        note("password_hash ignored: it is not a password hash (to set a password, use the password= line)")
+        pwh = ""
+    elif pwh and pw:
+        note("both password= and password_hash= given: using password=")
+        pwh = ""
+    if not user and not (pw or pwh):
+        note("no username/password in the file: the console wizard will ask (serial/HDMI)")
+        return False
+    if not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", user) or user in RESERVED_USERS:
+        note(f"username '{user}' not allowed (lowercase letters, digits, '-', '_'; not a system name)")
+        return False
+    if not (pw or pwh):
+        note("username given but no password: the console wizard will ask")
+        return False
+    if pwh and not pw:
+        # The wizard only takes a plain password; set a random one, then install the hash ourselves
+        # after the wizard (mangue-setup --post on the next boot).
+        pw = secrets.token_urlsafe(24)
+        os.makedirs(os.path.dirname(LOCK_MARK), exist_ok=True)
+        open("/var/lib/mangueos/user-hash", "w").write(f"{user}:{pwh}\n")
+        os.chmod("/var/lib/mangueos/user-hash", 0o600)
+    preset = {
+        "PRESET_USER_NAME": user, "PRESET_USER_PASSWORD": pw, "PRESET_DEFAULT_REALNAME": user,
+        "PRESET_USER_SHELL": "bash",
+        # Root gets a random password nobody knows; it is locked on the next boot (Pi OS model: sudo).
+        "PRESET_ROOT_PASSWORD": secrets.token_urlsafe(24),
+    }
+    if c.get("timezone"):
+        if os.path.exists(f"/usr/share/zoneinfo/{c['timezone']}"):
+            preset["PRESET_TIMEZONE"] = c["timezone"]
+        else:
+            note(f"timezone '{c['timezone']}' unknown: wizard default used")
+    if c.get("locale"):
+        try:
+            supported = {l.split()[0] for l in open("/usr/share/i18n/SUPPORTED") if l.strip()}
+        except OSError:
+            supported = {c["locale"]}
+        if c["locale"] in supported:
+            preset["PRESET_LOCALE"] = c["locale"]
+        else:
+            note(f"locale '{c['locale']}' unknown (example: en_GB.UTF-8): wizard default used")
+    with open(PRESET, "a") as f:
+        f.write("\n# mangue-setup (from /boot/mangue-setup.txt)\n")
+        f.writelines(f"{k}={shlex.quote(v)}\n" for k, v in preset.items())
+    os.chmod(PRESET, 0o600)
+    os.makedirs(os.path.dirname(LOCK_MARK), exist_ok=True)
+    open(LOCK_MARK, "w").write(user + "\n")
+    note(f"user '{user}' will be created unattended (root locked after setup; use sudo)")
+    return True
+
+
+def post():
+    """Next boot, after the wizard finished: lock root, apply a pre-hashed user password."""
+    if os.path.exists(PRESET):
+        return                                    # wizard not finished yet
+    hf = "/var/lib/mangueos/user-hash"
+    if os.path.exists(hf):
+        r = subprocess.run(["chpasswd", "-e"], stdin=open(hf), capture_output=True, text=True)
+        print("mangue-setup: user password hash", "applied" if r.returncode == 0 else f"FAILED: {r.stderr}")
+        os.remove(hf)
+    if os.path.exists(LOCK_MARK):
+        subprocess.run(["passwd", "-l", "root"], capture_output=True)
+        os.remove(LOCK_MARK)
+        print("mangue-setup: root password locked")
+
+
+def main():
+    if "--post" in sys.argv or (os.path.exists(LOCK_MARK) and not os.path.exists(PRESET)):
+        post()
+    if not os.path.exists(PRESET):
+        # Set up already: apply edits made on the PC since the last run (the unit's ExecCondition only
+        # starts us when the hash differs; check again for manual runs).
+        if os.path.exists(DONE_MARK) and os.path.exists(SETUP):
+            if file_changed():
+                reapply()
+        return
+    if not os.path.exists(SETUP) or (os.path.exists(DONE_MARK) and not file_changed()):
+        return                                    # (edited before the wizard ran: run again, the
+                                                  # wizard sources the preset and later lines win)
+    note(f"read {SETUP} ({time.strftime('%Y-%m-%d %H:%M:%S')})")
+    raw, c = read_setup()
+    for step in (apply_hostname, apply_wifi, apply_ssh, apply_gadget):
+        try:
+            step(c)
+        except Exception as e:                     # one bad setting must not stop the rest
+            note(f"{step.__name__}: {e}")
+    preset_user(c)
+    os.makedirs(os.path.dirname(DONE_MARK), exist_ok=True)
+    open(DONE_MARK, "w").write(time.strftime("%Y-%m-%d %H:%M:%S\n"))
+    scrub(raw)
+    remember_applied()
+    write_boot(RESULT, "Mangue OS first-boot setup\r\n\r\n" + "\r\n".join(log) + "\r\n")
+
+
+if __name__ == "__main__":
+    main()

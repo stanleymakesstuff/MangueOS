@@ -1,0 +1,11 @@
+[Unit]
+Description=Mangue OS: restore I2C devices saved with mqpro-io i2c-add --persist
+ConditionPathExists=/etc/mangueos/i2c-devices
+After=systemd-modules-load.service systemd-udevd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mqpro-io i2c-restore
+
+[Install]
+WantedBy=multi-user.target

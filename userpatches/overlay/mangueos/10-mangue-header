@@ -1,0 +1,34 @@
+#!/bin/bash
+# Mangue OS login banner: wordmark, then mango logo (22 rows) + live system info.
+LOGO=/usr/share/mangueos/logo_motd.ans
+WORDMARK=/usr/share/mangueos/wordmark.ans
+[ -r "$LOGO" ] || exit 0
+if [ -r "$WORDMARK" ]; then echo; cat "$WORDMARK"; echo; fi
+. /etc/os-release
+Y=$'\e[38;5;214m'; B=$'\e[1m'; D=$'\e[2m'; R=$'\e[0m'
+read -r up _ < /proc/uptime; up=${up%.*}
+upt=$(printf '%dd %02dh %02dm' $((up/86400)) $((up%86400/3600)) $((up%3600/60)))
+mem=$(awk '/MemTotal/{t=$2}/MemAvailable/{a=$2}END{printf "%dM / %dM", (t-a)/1024, t/1024}' /proc/meminfo)
+disk=$(df -h / | awk 'NR==2{print $3" / "$2}')
+temp=$(awk '{printf "%.0f°C", $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+ip4=$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); printf "%s%s (%s)", sep, a[1], $2; sep=", "}')
+ovl=$(awk '$1=="fdtoverlays"{for(i=2;i<=NF;i++){n=$i; sub(".*/","",n); sub("\\.dtbo$","",n); printf "%s ", n}}' /boot/extlinux/extlinux.conf 2>/dev/null)
+model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null)
+I=( "" "" ""
+"${B}${Y}${NAME}${R} ${B}${VERSION_ID}${R} ${D}(Debian ${VERSION_CODENAME})${R}"
+"${D}────────────────────────────────${R}"
+"${B}Host${R}     ${USER:-$(id -un)}@$(hostname)"
+"${B}Board${R}    ${model:-unknown}"
+"${B}Kernel${R}   $(uname -r) $(uname -m)"
+"${B}Uptime${R}   ${upt}"
+"${B}Memory${R}   ${mem}"
+"${B}Disk${R}     ${disk}"
+"${B}IP${R}       ${ip4:-none}"
+"${B}Temp${R}     ${temp:-n/a}"
+"${B}Overlays${R} ${ovl:-none}" )
+i=0
+while IFS= read -r line; do
+	printf '%s%s   %s\n' "$line" "$R" "${I[$i]}"
+	i=$((i+1))
+done < "$LOGO"
+echo

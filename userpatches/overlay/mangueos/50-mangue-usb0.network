@@ -1,0 +1,21 @@
+# Mangue OS: USB-C gadget network. The board is 10.55.0.1; the PC gets 10.55.0.10-29 by DHCP.
+# No default route or DNS is offered, so the PC keeps using its own internet connection.
+[Match]
+Name=usb0
+
+[Link]
+# Unplugged most of the time: never hold up network-online.target.
+RequiredForOnline=no
+
+[Network]
+Address=10.55.0.1/24
+DHCPServer=yes
+ConfigureWithoutCarrier=yes
+LinkLocalAddressing=ipv6
+MulticastDNS=no
+
+[DHCPServer]
+PoolOffset=10
+PoolSize=20
+EmitRouter=no
+EmitDNS=no

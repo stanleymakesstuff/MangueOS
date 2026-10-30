@@ -1,0 +1,8 @@
+[Unit]
+Description=Mangue OS: write board status to /boot/mangue-status.txt
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/mangueos/mangue-status
+TimeoutStartSec=30

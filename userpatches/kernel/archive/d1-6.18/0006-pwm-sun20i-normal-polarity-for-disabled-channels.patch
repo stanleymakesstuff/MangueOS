@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@localhost>
+Date: Sat, 10 Oct 2026 16:05:00 +0400
+Subject: [PATCH] pwm: sun20i: report normal polarity for disabled channels
+
+The ACT_STA reset value (0) made freshly exported channels default to
+inversed polarity, inverting the duty cycle unless userspace set polarity.
+
+---
+--- a/drivers/pwm/pwm-sun20i.c	2026-10-10 16:01:34.918097241 +0400
++++ b/drivers/pwm/pwm-sun20i.c	2026-10-10 16:01:46.470120084 +0400
+@@ -149,6 +149,15 @@
+ 	val = sun20i_pwm_readl(sun20i_chip, SUN20I_PWM_ENABLE);
+ 	state->enabled = (SUN20I_PWM_ENABLE_EN(pwm->hwpwm) & val) ? true : false;
+ 
++	/*
++	 * Mangue OS: ACT_STA resets to 0, which reads back as "inversed" on an
++	 * untouched channel, so a freshly exported channel silently produced
++	 * inverted duty cycles. Report NORMAL for disabled channels; apply()
++	 * writes ACT_STA explicitly when the channel is enabled.
++	 */
++	if (!state->enabled)
++		state->polarity = PWM_POLARITY_NORMAL;
++
+ 	val = sun20i_pwm_readl(sun20i_chip, SUN20I_PWM_PERIOD(pwm->hwpwm));
+ 	act_cycle = FIELD_GET(SUN20I_PWM_PERIOD_ACT_CYCLE, val);
+ 

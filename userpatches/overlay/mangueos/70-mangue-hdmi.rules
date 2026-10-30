@@ -1,0 +1,2 @@
+# Mangue OS: monitor plugged in while running -> fresh login prompt on tty1 (mangue-hdmi-login).
+ACTION=="change", SUBSYSTEM=="drm", KERNEL=="card0", ENV{HOTPLUG}=="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mangue-hdmi-login.service"

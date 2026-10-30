@@ -1,0 +1,56 @@
+From f27f3150ed3f84b6252e0649986bf2803401369f Mon Sep 17 00:00:00 2001
+From: Mangue OS <noreply@mangueos>
+Date: Mon, 12 Oct 2026 15:56:23 +0400
+Subject: [PATCH 10/10] drm/sun4i: dw-hdmi: D1: only accept pixel clocks the
+ PHY setup supports
+
+The D1 PHY code uses one fixed configuration and the pixel clock is derived from pll-video0 (297 MHz). 2160x1440@60 (206.16 MHz) passed the A83T 297 MHz limit, locked the PHY PLL and produced no picture on a 2K monitor; forcing 1080p60 worked. Whitelist 148.5/74.25/27 MHz so DRM falls back to a supported EDID mode.
+---
+ drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
+index 42a304f..5d64e64 100644
+--- a/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
++++ b/drivers/gpu/drm/sun4i/sun8i_dw_hdmi.c
+@@ -40,6 +40,28 @@ sun8i_dw_hdmi_mode_valid_a83t(struct dw_hdmi *hdmi, void *data,
+ 	return MODE_OK;
+ }
+ 
++/*
++ * D1: the PHY setup is one fixed configuration (BSP values, not per-clock tables) and
++ * the pixel clock comes from pll-video0 (297 MHz) through an integer divider. Clocks
++ * outside that set (e.g. 2160x1440@60 = 206.16 MHz) are accepted by the A83T limit,
++ * lock the PHY PLL and still give no picture. Only allow CEA clocks that are exact
++ * divisions of 297 MHz, so high-resolution monitors fall back to 1080p/720p/480p.
++ */
++static enum drm_mode_status
++sun20i_d1_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
++			     const struct drm_display_info *info,
++			     const struct drm_display_mode *mode)
++{
++	switch (mode->clock) {
++	case 148500:	/* 1080p60/50 */
++	case 74250:	/* 720p60/50, 1080i, 1080p30/25/24 */
++	case 27000:	/* 480p, 576p */
++		return MODE_OK;
++	default:
++		return MODE_CLOCK_RANGE;
++	}
++}
++
+ static enum drm_mode_status
+ sun8i_dw_hdmi_mode_valid_h6(struct dw_hdmi *hdmi, void *data,
+ 			    const struct drm_display_info *info,
+@@ -247,7 +269,7 @@ static const struct sun8i_dw_hdmi_quirks sun8i_a83t_quirks = {
+ };
+ 
+ static const struct sun8i_dw_hdmi_quirks sun20i_d1_quirks = {
+-	.mode_valid = sun8i_dw_hdmi_mode_valid_a83t,
++	.mode_valid = sun20i_d1_dw_hdmi_mode_valid,
+ 	.use_drm_infoframe = true,
+ };
+ 
+-- 
+2.43.0
+

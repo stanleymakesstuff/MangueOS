@@ -1,0 +1,17 @@
+#!/bin/sh
+# Mangue OS: generate the locale named in /var/lib/mangueos/locale-pending and make it the default.
+# Removes the pending file only after locale-gen and update-locale both succeeded (B27).
+set -e
+PENDING=/var/lib/mangueos/locale-pending
+loc=$(head -n1 "$PENDING")
+line=$(awk -v l="$loc" '$1 == l' /usr/share/i18n/SUPPORTED | head -n1)
+[ -n "$line" ] || { echo "unsupported locale '$loc', dropped" >&2; rm -f "$PENDING"; exit 0; }
+esc=$(printf '%s' "$loc" | sed 's/[.]/\\./g')
+sed -i "s/^# *\($esc \)/\1/" /etc/locale.gen
+grep -q "^$esc " /etc/locale.gen || echo "$line" >> /etc/locale.gen
+locale-gen
+update-locale LANG="$loc" LANGUAGE="$loc" LC_MESSAGES="$loc"
+sync
+rm -f "$PENDING"
+sync
+echo "locale $loc generated and set"

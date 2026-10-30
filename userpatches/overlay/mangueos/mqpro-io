@@ -1,0 +1,311 @@
+#!/usr/bin/python3
+"""mqpro-io — MangoPi MQ Pro header I/O helper (Mangue OS).
+
+  mqpro-io list                     all header overlays (* = enabled)
+  mqpro-io enabled                  overlays enabled for the next boot
+  mqpro-io pins                     header map: port, voltage, Pi position, owner
+  mqpro-io pin <P11|11|PB7|GPIO17>  look a pin up (GPIO17/BCM17 = Raspberry Pi numbering)
+  mqpro-io enable <overlay>...      enable (checks pin + controller conflicts), reboot to apply
+  mqpro-io disable <overlay>...|all
+  mqpro-io check                    validate the current boot configuration
+  mqpro-io i2c-add <bus> <chip> <0xaddr> [--persist]   bind a kernel driver to an I2C device
+  mqpro-io i2c-remove <bus> <0xaddr>                    (e.g. i2c-add 0 bme280 0x76)
+
+Numbering is MangoPi everywhere: physical pin numbers, D1 controller numbers (/dev/i2c-0 = pins 3/5).
+"""
+import json, os, re, sys
+
+DB = "/usr/share/mangueos/mqpro-io.json"
+EXTLINUX = "/boot/extlinux/extlinux.conf"
+OV_DIR_BOOT = "/dtb/allwinner/overlay"          # path as U-Boot sees the FAT /boot partition
+OV_DIR = "/boot" + OV_DIR_BOOT
+I2C_PERSIST = "/etc/mangueos/i2c-devices"
+
+
+def die(msg, code=1):
+    print(f"mqpro-io: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def load_db():
+    try:
+        with open(DB) as f:
+            return json.load(f)
+    except OSError as e:
+        die(f"cannot read {DB}: {e}")
+
+
+def need_root():
+    if os.geteuid() != 0:
+        die("needs root (use sudo)")
+
+
+# --- extlinux.conf -----------------------------------------------------------------------------
+def read_extlinux():
+    try:
+        with open(EXTLINUX) as f:
+            return f.read().splitlines()
+    except OSError as e:
+        die(f"cannot read {EXTLINUX}: {e}")
+
+
+def enabled_overlays(lines=None):
+    for l in lines if lines is not None else read_extlinux():
+        m = re.match(r"\s*fdtoverlays\s+(.*)", l)
+        if m:
+            return [os.path.basename(p)[:-5] for p in m.group(1).split() if p.endswith(".dtbo")]
+    return []
+
+
+def write_extlinux(names):
+    lines = read_extlinux()
+    out, done = [], False
+    for l in lines:
+        if re.match(r"\s*fdtoverlays\s", l):
+            continue                                   # rewritten after the fdt line
+        out.append(l)
+        if re.match(r"\s*fdt\s", l) and not done:
+            done = True
+            if names:
+                indent = re.match(r"(\s*)", l).group(1)
+                out.append(indent + "fdtoverlays " + " ".join(f"{OV_DIR_BOOT}/{n}.dtbo" for n in names))
+    if not done:
+        die(f"no 'fdt' line in {EXTLINUX}; not touching it")
+    text = "\n".join(out) + "\n"
+    tmp, bak = EXTLINUX + ".tmp", EXTLINUX + ".bak"
+    with open(EXTLINUX) as f, open(bak, "w") as b:      # keep the previous version
+        b.write(f.read())
+        b.flush(); os.fsync(b.fileno())
+    with open(tmp, "w") as f:
+        f.write(text)
+        f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, EXTLINUX)
+    fd = os.open(os.path.dirname(EXTLINUX), os.O_RDONLY)
+    os.fsync(fd); os.close(fd)
+
+
+# --- conflicts ---------------------------------------------------------------------------------
+def conflicts(db, names):
+    """Return a list of human-readable conflicts within a set of overlays."""
+    ov, errs = db["overlays"], []
+    names = list(names)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            pa, pb = set(ov[a]["pins"]), set(ov[b]["pins"])
+            shared = sorted(pa & pb, key=int)
+            if shared:
+                errs.append(f"{a} and {b} both use pin {', '.join(shared)}")
+            elif ov[a]["resource"] == ov[b]["resource"]:
+                errs.append(f"{a} and {b} both use {ov[a]['resource']}")
+    return errs
+
+
+def owners(db, names):
+    own = {}
+    for n in names:
+        for p, role in db["overlays"][n]["pins"].items():
+            own[p] = f"{n} ({role})"
+    return own
+
+
+# --- pin lookup --------------------------------------------------------------------------------
+def resolve_pin(db, q):
+    h = db["header"]
+    s = q.strip().upper()
+    m = re.fullmatch(r"P?(\d+)", s)
+    if m and m.group(1) in h:
+        return m.group(1)
+    m = re.fullmatch(r"(?:GPIO|BCM)(\d+)", s)
+    if m:
+        for p, v in h.items():
+            if v["pi_bcm"] == int(m.group(1)):
+                return p
+        die(f"Pi {s} has no counterpart on the MQ Pro header")
+    for p, v in h.items():
+        if v["port"] == s:
+            return p
+    die(f"unknown pin '{q}' (try P11, 11, PB7 or GPIO17)")
+
+
+def pin_functions(db, p):
+    return [f"{n} ({r})" for n, o in db["overlays"].items() for pp, r in o["pins"].items() if pp == p]
+
+
+# --- commands ----------------------------------------------------------------------------------
+def cmd_list(db, _):
+    en = set(enabled_overlays())
+    for n, o in db["overlays"].items():
+        pins = ",".join(o["pins"])
+        print(f"{'*' if n in en else ' '} {n:<26} pins {pins:<16} {o['device']}")
+
+
+def cmd_enabled(db, _):
+    for n in enabled_overlays():
+        print(n)
+
+
+def cmd_pins(db, _):
+    own = owners(db, [n for n in enabled_overlays() if n in db["overlays"]])
+    print(f"{'pin':>3}  {'port':<5} {'V':<4} {'Pi':<7} {'line':<11} use")
+    for p, v in db["header"].items():
+        use = v["reserved"] or own.get(p, "gpio")
+        pi = f"GPIO{v['pi_bcm']}" if v["pi_bcm"] is not None else "-"
+        line = f"P{p}-CONSOLE" if v["reserved"] else f"P{p}"
+        print(f"{p:>3}  {v['port']:<5} {v['voltage']:<4} {pi:<7} {line:<11} {use}")
+    print("Power: 1,17 = 3.3 V; 2,4 = 5 V; GND: 6,9,14,20,25,30,34,39")
+
+
+def cmd_pin(db, args):
+    if not args:
+        die("usage: mqpro-io pin <P11|11|PB7|GPIO17>")
+    p = resolve_pin(db, args[0])
+    v = db["header"][p]
+    port = v["port"]
+    chip_line = (ord(port[1]) - ord("A")) * 32 + int(port[2:])
+    print(f"physical pin {p}  ({v['voltage']} V{', board pull-up' if v['board_pullup'] else ''})")
+    print(f"  D1 port      {port}")
+    line = f"P{p}-CONSOLE" if v["reserved"] else f"P{p}"
+    print(f"  GPIO line    {line}   (gpioinfo {line} / gpioget {line}; gpiochip0 line {chip_line})")
+    print(f"  Raspberry Pi " + (f"GPIO{v['pi_bcm']} sits at the same position" if v["pi_bcm"] is not None else "-"))
+    if v["reserved"]:
+        print(f"  reserved     {v['reserved']}")
+    funcs = pin_functions(db, p)
+    if funcs:
+        print("  overlays     " + "\n               ".join(funcs))
+
+
+def cmd_enable(db, args):
+    need_root()
+    if not args:
+        die("usage: mqpro-io enable <overlay>...")
+    cur = enabled_overlays()
+    for n in args:
+        if n not in db["overlays"]:
+            die(f"unknown overlay '{n}' (see: mqpro-io list)")
+        if not os.path.exists(f"{OV_DIR}/{n}.dtbo"):
+            die(f"{OV_DIR}/{n}.dtbo is missing")
+    new = cur + [n for n in args if n not in cur]
+    errs = conflicts(db, new)
+    if errs:
+        die("not enabled — conflicts:\n  " + "\n  ".join(errs))
+    write_extlinux(new)
+    for n in args:
+        o = db["overlays"][n]
+        print(f"enabled {n}: {o['device']}")
+        for k in ("warn", "note"):
+            if o.get(k):
+                print(f"  {'WARNING' if k == 'warn' else 'note'}: {o[k]}")
+    print("Reboot to apply.")
+
+
+def cmd_disable(db, args):
+    need_root()
+    if not args:
+        die("usage: mqpro-io disable <overlay>...|all")
+    cur = enabled_overlays()
+    new = [] if args == ["all"] else [n for n in cur if n not in args]
+    for n in args:
+        if n != "all" and n not in cur:
+            print(f"{n} is not enabled")
+    write_extlinux(new)
+    print("Reboot to apply.")
+
+
+def cmd_check(db, _):
+    cur, bad = enabled_overlays(), 0
+    for n in cur:
+        if n not in db["overlays"]:
+            print(f"unknown overlay in {EXTLINUX}: {n}"); bad = 1
+        elif not os.path.exists(f"{OV_DIR}/{n}.dtbo"):
+            print(f"missing file {OV_DIR}/{n}.dtbo"); bad = 1
+    for e in conflicts(db, [n for n in cur if n in db["overlays"]]):
+        print("conflict: " + e); bad = 1
+    print("OK" if not bad else "problems found")
+    sys.exit(bad)
+
+
+def i2c_bus_path(bus):
+    if not re.fullmatch(r"\d+", bus):
+        die(f"bus must be a number (as in /dev/i2c-N), got '{bus}'")
+    d = f"/sys/bus/i2c/devices/i2c-{bus}"
+    if not os.path.isdir(d):
+        die(f"/dev/i2c-{bus} does not exist (enable its overlay first: mqpro-io list)")
+    return d
+
+
+def cmd_i2c_add(db, args):
+    need_root()
+    persist = "--persist" in args
+    args = [a for a in args if a != "--persist"]
+    if len(args) != 3:
+        die("usage: mqpro-io i2c-add <bus> <chip> <0xaddr> [--persist]")
+    bus, chip, addr = args
+    d = i2c_bus_path(bus)
+    if not re.fullmatch(r"0x[0-9a-fA-F]{1,2}", addr):
+        die("address must look like 0x76")
+    try:
+        with open(f"{d}/new_device", "w") as f:
+            f.write(f"{chip} {addr}\n")
+    except OSError as e:
+        die(f"kernel refused '{chip} {addr}' on i2c-{bus}: {e}")
+    node = f"{d}/{bus}-{int(addr, 16):04x}"
+    drv = os.path.realpath(node + "/driver") if os.path.exists(node + "/driver") else None
+    print(f"i2c-{bus} {addr}: {chip} " + (f"bound to {os.path.basename(drv)}" if drv else
+          "created, but no driver bound (wrong chip name? see dmesg)"))
+    if persist:
+        os.makedirs(os.path.dirname(I2C_PERSIST), exist_ok=True)
+        line = f"{bus} {chip} {addr}\n"
+        old = open(I2C_PERSIST).read() if os.path.exists(I2C_PERSIST) else ""
+        if line not in old:
+            with open(I2C_PERSIST, "a") as f:
+                f.write(line)
+        print(f"saved in {I2C_PERSIST} (restored at boot)")
+
+
+def cmd_i2c_remove(db, args):
+    need_root()
+    if len(args) != 2:
+        die("usage: mqpro-io i2c-remove <bus> <0xaddr>")
+    bus, addr = args
+    d = i2c_bus_path(bus)
+    try:
+        with open(f"{d}/delete_device", "w") as f:
+            f.write(f"{addr}\n")
+    except OSError as e:
+        die(f"cannot remove {addr} from i2c-{bus}: {e}")
+    if os.path.exists(I2C_PERSIST):
+        keep = [l for l in open(I2C_PERSIST) if not (l.split()[:1] == [bus] and l.split()[2:3] == [addr])]
+        with open(I2C_PERSIST, "w") as f:
+            f.writelines(keep)
+    print(f"removed i2c-{bus} {addr}")
+
+
+def cmd_i2c_restore(db, _):
+    """Boot-time: re-create devices saved with --persist (mangue-i2c-devices.service)."""
+    if not os.path.exists(I2C_PERSIST):
+        return
+    for l in open(I2C_PERSIST):
+        f = l.split()
+        if len(f) == 3 and not l.startswith("#"):
+            d = f"/sys/bus/i2c/devices/i2c-{f[0]}"
+            try:
+                with open(f"{d}/new_device", "w") as h:
+                    h.write(f"{f[1]} {f[2]}\n")
+            except OSError as e:
+                print(f"i2c-{f[0]} {f[2]} {f[1]}: {e}", file=sys.stderr)
+
+
+CMDS = {"list": cmd_list, "enabled": cmd_enabled, "pins": cmd_pins, "pin": cmd_pin,
+        "enable": cmd_enable, "disable": cmd_disable, "check": cmd_check,
+        "i2c-add": cmd_i2c_add, "i2c-remove": cmd_i2c_remove, "i2c-restore": cmd_i2c_restore}
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help") or sys.argv[1] not in CMDS:
+        print(__doc__.strip())
+        sys.exit(0 if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help", "help") else 2)
+    CMDS[sys.argv[1]](load_db(), sys.argv[2:])
+
+
+if __name__ == "__main__":
+    main()

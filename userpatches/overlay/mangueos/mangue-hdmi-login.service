@@ -1,0 +1,8 @@
+[Unit]
+Description=Mangue OS: fresh login prompt on a monitor plugged in while running
+# Started by udev on HDMI hot-plug (70-mangue-hdmi.rules); several events per plug-in merge into one run.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/mangueos/mangue-hdmi-login
+TimeoutStartSec=30

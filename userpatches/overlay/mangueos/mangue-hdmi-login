@@ -1,0 +1,14 @@
+#!/bin/sh
+# Mangue OS: a monitor plugged in while running shows tty1's old buffer (boot lines, then whatever the
+# kernel printed after the login prompt). Clear it and restart the tty1 login so the screen shows the
+# banner and a clean prompt. Never touches tty1 while someone is logged in there (or the setup wizard runs).
+C=/sys/class/drm/card0-HDMI-A-1
+grep -qx connected $C/status 2>/dev/null || exit 0
+# The console switches to the framebuffer ~1 s after the first hot-plug event: wait for it.
+for i in $(seq 1 20); do [ -e /sys/class/graphics/fb0 ] && break; sleep 0.5; done
+sleep 1
+systemctl is-active -q getty@tty1.service || exit 0
+loginctl list-sessions --no-legend 2>/dev/null | awk '{print $NF}' | grep -qx tty1 && exit 0
+who | awk '{print $2}' | grep -qx tty1 && exit 0
+printf '\033[H\033[2J\033[3J' > /dev/tty1
+systemctl restart getty@tty1.service

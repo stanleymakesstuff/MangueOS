@@ -1,0 +1,10 @@
+[Unit]
+Description=Mangue OS: check the RTL8723DS Wi-Fi driver every 30 s
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

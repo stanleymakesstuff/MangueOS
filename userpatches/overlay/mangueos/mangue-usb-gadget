@@ -1,0 +1,57 @@
+#!/bin/sh
+# Mangue OS: SSH over USB-C. Composite gadget on the "OTG" port (USB0, the one that powers the board):
+#   NCM  USB-Ethernet (Linux/macOS/Windows 11 inbox driver; WINNCM OS descriptor for Windows)
+#   ACM  serial console (/dev/ttyGS0, login prompt; Windows 10+ binds it natively)
+# The board is 10.55.0.1 and hands the PC an address by DHCP (systemd-networkd, 50-mangue-usb0.network).
+set -e
+G=/sys/kernel/config/usb_gadget/mangue
+case "$1" in
+stop)
+	[ -d $G ] || exit 0
+	echo "" > $G/UDC 2>/dev/null || true
+	rm -f $G/os_desc/c.1 $G/configs/c.1/ncm.usb0 $G/configs/c.1/acm.GS0
+	rmdir $G/configs/c.1/strings/0x409 $G/configs/c.1 $G/functions/ncm.usb0 $G/functions/acm.GS0 \
+		$G/strings/0x409 $G 2>/dev/null || true
+	exit 0 ;;
+esac
+modprobe libcomposite          # gadget configfs (pulls in configfs); a module since g_ether is gone
+mountpoint -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
+UDC=$(ls /sys/class/udc | head -n1)
+[ -n "$UDC" ] || { echo "no USB device controller" >&2; exit 1; }
+[ -d $G ] && "$0" stop
+
+# Stable identity per board: same MACs and serial on every boot (else Windows adds a new adapter each time).
+ID=$(cat /etc/machine-id)
+mac() { echo "$ID$1" | sha256sum | sed -E 's/^(..)(..)(..)(..)(..).*/02:\1:\2:\3:\4:\5/'; }
+
+mkdir -p $G && cd $G
+echo 0x1d6b > idVendor        # Linux Foundation
+echo 0x0104 > idProduct       # Multifunction Composite Gadget
+echo 0x0100 > bcdDevice
+echo 0x0200 > bcdUSB
+echo 0xEF > bDeviceClass      # Miscellaneous / IAD: lets Windows bind each function separately
+echo 0x02 > bDeviceSubClass
+echo 0x01 > bDeviceProtocol
+mkdir -p strings/0x409
+echo "Mangue OS" > strings/0x409/manufacturer
+echo "MangoPi MQ Pro ($(hostname))" > strings/0x409/product
+echo "$ID" | cut -c1-16 > strings/0x409/serialnumber
+
+mkdir -p configs/c.1/strings/0x409
+echo "NCM + serial" > configs/c.1/strings/0x409/configuration
+echo 250 > configs/c.1/MaxPower
+
+mkdir -p functions/ncm.usb0
+mac host > functions/ncm.usb0/host_addr
+mac dev > functions/ncm.usb0/dev_addr
+# Microsoft OS descriptors: compatible ID WINNCM selects Windows' inbox UsbNcm driver.
+echo 1 > os_desc/use
+echo 0xcd > os_desc/b_vendor_code
+echo MSFT100 > os_desc/qw_sign
+echo WINNCM > functions/ncm.usb0/os_desc/interface.ncm/compatible_id
+mkdir -p functions/acm.GS0
+
+ln -s functions/ncm.usb0 configs/c.1/
+ln -s functions/acm.GS0 configs/c.1/
+ln -s configs/c.1 os_desc/
+echo "$UDC" > UDC

@@ -1,0 +1,17 @@
+[Unit]
+Description=Mangue OS: generate and set the locale from /boot/mangue-setup.txt
+# Queued by mangue-setup (it writes the pending file). locale-gen takes minutes on this CPU and can be
+# cut off by a reboot or power loss (B27), so the pending file is removed only after success and every
+# boot retries until then.
+ConditionPathExists=/var/lib/mangueos/locale-pending
+After=mangue-setup.service local-fs.target
+
+[Service]
+# exec, not oneshot: multi-user.target must not wait minutes for locale-gen.
+Type=exec
+ExecStart=/usr/lib/mangueos/mangue-locale
+Nice=10
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

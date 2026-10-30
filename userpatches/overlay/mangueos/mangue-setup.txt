@@ -1,0 +1,147 @@
+##############################################################################
+#  MANGUE OS - FIRST-BOOT SETUP FILE
+##############################################################################
+#
+#  What is this file?
+#    This file sets up your MangoPi the first time it starts, so you never need
+#    a screen or keyboard ("headless"). You fill it in on your PC, put the card
+#    back in the board, and power it on. The board reads this file at start-up.
+#
+#  How to use it:
+#    1. Open this file with Notepad (Windows), TextEdit (Mac) or any text editor.
+#    2. Type your choices after the = signs below. No quotes needed.
+#    3. For timezone, locale and Wi-Fi country: delete the # at the start of
+#       ONE line to choose it ("uncomment" it). Leave the other lines alone.
+#    4. Save the file, eject the card safely, put it in the MangoPi, power on.
+#    5. Wait 3-5 minutes for the first start. Then connect (see the end of
+#       this file).
+#
+#  Good to know:
+#    - Lines starting with # are notes; the board ignores them.
+#    - Your passwords are ERASED from this file once they are used, so they
+#      do not stay readable on the card. They keep working.
+#    - To change something later (a new password, another Wi-Fi, a new user):
+#      edit this file on your PC and start the board with it. The board applies
+#      only what you changed, erases the passwords again, and lists what it did
+#      in mangue-setup-result.txt. A new username + password ADDS a user; the
+#      old one is kept. Anyone who can edit this card can do this - keep it safe.
+#    - What happened is written to mangue-setup-result.txt next to this file.
+#      If something did not work, put the card in your PC and read it.
+#    - While it runs, the board keeps mangue-status.txt up to date next to this
+#      file: its address, whether setup finished, and how to connect.
+#    - Windows may say "You need to format the disk in drive X:" when you put
+#      the card in. That is the board's Linux part, which Windows cannot read.
+#      Click CANCEL. Never format it.
+#    - If you leave username/password empty, nothing is set up automatically;
+#      you then set up on a screen + keyboard or a serial cable instead.
+#
+##############################################################################
+
+# ---- 1. Your account -------------------------------------------------------
+# Your login name: lowercase letters, numbers, - or _ (example: maker)
+username=
+# Your password (you will need it to log in, and for sudo).
+password=
+# Advanced users only: instead of password=, remove the # and paste a password
+# HASH (from: openssl passwd -6). Do not type a normal password here.
+#password_hash=
+
+# ---- 2. Board name ---------------------------------------------------------
+# The name of the board on your network. With hostname=mqpro you can reach it
+# as mqpro.local. Letters, numbers and - only.
+hostname=mqpro
+
+# ---- 3. Wi-Fi ---------------------------------------------------------------
+# The board's Wi-Fi is 2.4 GHz only (5 GHz networks will not work).
+# Network name (exactly as on your phone, capitals matter):
+wifi_ssid=
+# Wi-Fi password (to move to another network later, type the new name AND
+# its password; with an empty password the change is refused):
+wifi_password=
+# Network without a password? Remove the # on the next line:
+#wifi_open=yes
+# Is it a hidden network (name not shown in Wi-Fi lists)? yes or no
+wifi_hidden=no
+# Your country (sets the allowed Wi-Fi channels). Uncomment ONE line:
+#wifi_country=AE      # United Arab Emirates
+#wifi_country=SA      # Saudi Arabia
+#wifi_country=QA      # Qatar
+#wifi_country=IN      # India
+#wifi_country=PK      # Pakistan
+#wifi_country=GB      # United Kingdom
+#wifi_country=DE      # Germany
+#wifi_country=FR      # France
+#wifi_country=US      # United States
+#wifi_country=CA      # Canada
+#wifi_country=AU      # Australia
+#wifi_country=JP      # Japan
+# (other country: any two-letter ISO code, e.g. wifi_country=NL)
+
+# ---- 4. Timezone (clock) -----------------------------------------------------
+# Uncomment ONE line (delete its #). Not listed? Use the same format,
+# e.g. timezone=Europe/Amsterdam (list: en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+#timezone=Asia/Dubai
+#timezone=Asia/Riyadh
+#timezone=Asia/Qatar
+#timezone=Asia/Kolkata
+#timezone=Asia/Karachi
+#timezone=Asia/Dhaka
+#timezone=Asia/Manila
+#timezone=Asia/Singapore
+#timezone=Asia/Shanghai
+#timezone=Asia/Tokyo
+#timezone=Asia/Seoul
+#timezone=Australia/Sydney
+#timezone=Africa/Cairo
+#timezone=Africa/Johannesburg
+#timezone=Africa/Lagos
+#timezone=Africa/Nairobi
+#timezone=Europe/London
+#timezone=Europe/Paris
+#timezone=Europe/Berlin
+#timezone=Europe/Madrid
+#timezone=Europe/Rome
+#timezone=Europe/Istanbul
+#timezone=Europe/Moscow
+#timezone=America/New_York
+#timezone=America/Chicago
+#timezone=America/Denver
+#timezone=America/Los_Angeles
+#timezone=America/Toronto
+#timezone=America/Mexico_City
+#timezone=America/Sao_Paulo
+#timezone=Etc/UTC
+
+# ---- 5. Language and formats (locale) ---------------------------------------
+# Uncomment ONE line (delete its #).
+#locale=en_GB.UTF-8      # English (UK)
+#locale=en_US.UTF-8      # English (US)
+#locale=en_IN.UTF-8      # English (India)
+#locale=en_AU.UTF-8      # English (Australia)
+#locale=ar_AE.UTF-8      # Arabic (UAE)
+#locale=hi_IN.UTF-8      # Hindi
+#locale=ur_PK.UTF-8      # Urdu
+#locale=fr_FR.UTF-8      # French
+#locale=de_DE.UTF-8      # German
+#locale=es_ES.UTF-8      # Spanish
+#locale=it_IT.UTF-8      # Italian
+#locale=pt_BR.UTF-8      # Portuguese (Brazil)
+#locale=ru_RU.UTF-8      # Russian
+#locale=tr_TR.UTF-8      # Turkish
+#locale=zh_CN.UTF-8      # Chinese (simplified)
+#locale=ja_JP.UTF-8      # Japanese
+
+# ---- 6. Remote access ---------------------------------------------------------
+# SSH = log in to the board from your PC over the network. yes or no
+ssh=yes
+# SSH over a USB cable (no Wi-Fi needed). yes or no
+usb_gadget=yes
+
+# ---- How to connect after the first start ----------------------------------
+#  Over Wi-Fi:   open PowerShell / Terminal on your PC and type
+#                  ssh yourname@mqpro.local
+#                (use your username, and your hostname if you changed it)
+#  Over USB:     connect the board's "OTG" USB-C port (the one that powers it)
+#                to your PC with a data cable, wait one minute, then type
+#                  ssh yourname@10.55.0.1
+#  Root login over SSH is switched off: log in as yourself, then use sudo.

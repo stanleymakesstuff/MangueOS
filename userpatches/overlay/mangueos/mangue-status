@@ -1,0 +1,69 @@
+#!/bin/sh
+# Mangue OS: write /boot/mangue-status.txt (FAT boot partition, readable on any PC).
+# For beginners: the board's addresses and how to connect. For debugging: boot state, pending jobs,
+# failed units - readable even when no console login is possible. Run by mangue-status.timer
+# (every minute for 15 min after boot, then every 10 min); writes only when something changed.
+OUT=/boot/mangue-status.txt
+LAST=/run/mangue-status.last
+# Keep the previous boot's last status: a boot that hung or reset leaves its final state there (B20).
+# Only on this boot's first run (marker set even when there is no file yet, i.e. on the very first boot).
+if [ ! -e /run/mangue-status.prev ]; then
+	[ -f "$OUT" ] && cp "$OUT" /boot/mangue-status-previous-boot.txt
+	: > /run/mangue-status.prev
+fi
+up=$(cut -d. -f1 /proc/uptime)
+[ "$up" -gt 900 ] && [ $(( up / 60 % 10 )) -ne 0 ] && exit 0
+
+host=$(hostname)
+user=$(getent passwd 1000 | cut -d: -f1)
+ip4() { ip -4 -o addr show "$1" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
+wlan=$(ip4 wlan0); usb=$(ip4 usb0)
+# usb0 always has its static address; only carrier means a PC is on the cable.
+if [ -n "$usb" ] && [ "$(cat /sys/class/net/usb0/carrier 2>/dev/null)" = 1 ]; then
+	usbtxt="connected (board address $usb)"
+else
+	usbtxt="not connected"
+fi
+ssid=$(iw dev wlan0 link 2>/dev/null | sed -n 's/^\s*SSID: //p')
+state=$(systemctl is-system-running 2>/dev/null)
+if [ -f /root/.not_logged_in_yet ]; then
+	setup="NOT FINISHED - first-login setup still pending (see mangue-setup-result.txt)"
+else
+	setup="done${user:+ (user: $user)}"
+	# From the next boot on, logs may go to RAM (armbian-ramlog); until then they stay on the SD card
+	# so a first boot that never reaches a login can be read afterwards (B20).
+	[ -e /var/lib/mangueos/first-login-done ] || { mkdir -p /var/lib/mangueos && : > /var/lib/mangueos/first-login-done; }
+fi
+
+body=$(cat <<EOT
+Mangue OS - board status
+(written by the board itself; refreshed while it runs)
+
+Board name:   $host  (reach it as $host.local)
+Setup:        $setup
+Wi-Fi:        ${ssid:-not connected}${wlan:+  -> address $wlan}
+USB-C cable:  $usbtxt
+
+How to connect (PowerShell or Terminal on your PC):
+EOT
+)
+[ -n "$wlan" ] && body="$body
+  over Wi-Fi:  ssh ${user:-<your username>}@$host.local    (or ssh ${user:-<your username>}@$wlan)"
+body="$body
+  over USB-C:  plug the board's OTG port (the one that powers it) into the PC, then
+               ssh ${user:-<your username>}@10.55.0.1
+Root login over SSH is off: log in as yourself and use sudo.
+
+--- technical details ---
+system state: $state
+failed units: $(systemctl list-units --failed --plain --no-legend 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+pending jobs:
+$(systemctl list-jobs --no-legend 2>/dev/null | grep -v mangue-status | head -n 15)"
+
+# Only rewrite the FAT file when the content changed (clock and uptime stay out of the hash).
+sig=$(printf '%s' "$body" | md5sum | cut -d' ' -f1)
+[ -f "$LAST" ] && [ "$(cat "$LAST")" = "$sig" ] && [ -f "$OUT" ] && exit 0
+printf '%s\n\nlast update: %s, %s (board clock; correct once it has internet)\n' "$body" \
+	"$(date '+%Y-%m-%d %H:%M:%S')" "$(uptime -p 2>/dev/null)" \
+	| sed 's/$/\r/' > "$OUT.tmp" && mv "$OUT.tmp" "$OUT" && sync -f "$OUT"
+echo "$sig" > "$LAST"

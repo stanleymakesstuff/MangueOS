@@ -1,0 +1,49 @@
+From: Mangue OS <noreply@localhost>
+Subject: [PATCH] riscv: dts: allwinner: mangopi-mq-pro: add D1 thermal sensor
+
+---
+--- a/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts	2026-10-10 15:35:42.288204559 +0400
++++ b/arch/riscv/boot/dts/allwinner/sun20i-d1-mangopi-mq-pro.dts	2026-10-10 15:35:42.294931597 +0400
+@@ -140,3 +140,42 @@
+ 	usb1_vbus-supply = <&reg_vcc>;
+ 	status = "okay";
+ };
++
++/* Mangue OS: D1 thermal sensor (driver supports it; node missing upstream). From smaeul d1-wip. */
++&sid {
++	ths_calib: ths-calib@14 {
++		reg = <0x14 0x4>;
++	};
++};
++
++&{/soc} {
++	ths: temperature-sensor@2009400 {
++		compatible = "allwinner,sun20i-d1-ths";
++		reg = <0x2009400 0x400>;
++		interrupts = <SOC_PERIPHERAL_IRQ(58) IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&ccu CLK_BUS_THS>, <&dcxo>;
++		clock-names = "bus", "mod";
++		resets = <&ccu RST_BUS_THS>;
++		nvmem-cells = <&ths_calib>;
++		nvmem-cell-names = "calibration";
++		#thermal-sensor-cells = <0>;
++	};
++};
++
++/ {
++	thermal-zones {
++		cpu-thermal {
++			polling-delay = <1000>;
++			polling-delay-passive = <0>;
++			thermal-sensors = <&ths>;
++
++			trips {
++				cpu-crit {
++					hysteresis = <0>;
++					temperature = <110000>;
++					type = "critical";
++				};
++			};
++		};
++	};
++};
