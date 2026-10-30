@@ -4,11 +4,12 @@ Minimal Debian 13 (trixie) image for the MangoPi MQ Pro (Allwinner D1, RISC-V), 
 build framework. **Headless-first and beginner-friendly:** set up from a text file on your PC, then log
 in over Wi-Fi or one USB-C cable. HDMI console supported.
 
-## 0.1 (unreleased)
+## 0.1 (2026-10-30)
 
-**Download:** `MangueOS-0.1_mqpro_6.18.56.img.xz` (compressed, `<fill in>` MB; unpacks to a 1.93 GB
-`.img`). sha256 of the `.xz`: `<fill in>`, of the `.img`: `<fill in>`. Check it before flashing:
-`sha256sum` (Linux/macOS) or `Get-FileHash` (PowerShell). Needs a microSD card of 4 GB or more.
+**Download:** `MangueOS-0.1_mqpro_6.18.56.img.xz` (392 MB; unpacks to a 1.94 GB `.img`). Check it
+before flashing with `sha256sum` (Linux/macOS) or `Get-FileHash` (PowerShell):
+- `.img.xz`: `ea00aa7de7929410541cff9c936753a4b93a89795922898123722cb59db439c4`
+- `.img`: `2ce2e20fc3f37a5572a069aa5a6dace1091a4908254a72a723c1614744723ee0` Needs a microSD card of 4 GB or more.
 
 ### Getting started (no screen or keyboard needed)
 1. Flash the image. **Raspberry Pi Imager** ("Choose OS" → "Use custom" → the `.img.xz`) and
@@ -101,8 +102,8 @@ off first.
 ### Known issues and limits
 - **Header overlays are not yet tested with real parts** (I2C/SPI/UART/CAN/... devices). They are built and
   checked for pin conflicts; whether every bus works with a device attached is still open.
-- **Rare reset during the very first start** (seen once on a test build, cause unknown, not seen on the
-  two builds since). If it happens, leave the board powered: it starts again by itself.
+- **Rare reset during the very first start** (seen once on a test build, cause unknown, not seen on any
+  build since). If it happens, leave the board powered: it starts again by itself.
 - **Wi-Fi:** in a 24 h test the board lost about 1 ping in 2000 (4 of 8603) and
   reconnected after an access-point disconnect on its own. The vendor driver can still wedge in rare cases; the driver-reload watchdog covers that.
 - **File-based setup with a screen or serial cable attached:** setup runs on one console; the other shows
